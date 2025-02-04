@@ -173,18 +173,25 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
         smsUserConsentBroadcastReceiver = SmsUserConsentReceiver().also {
             it.smsBroadcastReceiverListener =
                 object : SmsUserConsentReceiver.SmsUserConsentBroadcastReceiverListener {
-                    override fun onSuccess(intent: Intent?) {
-                        intent?.let { context ->
+                    override fun onSuccess(intent: Intent?) {   
+                        // Validate the incoming intent before using it.
+                        if (intent != null && intent.action == SmsRetriever.SMS_RETRIEVED_ACTION) {
                             activity?.startActivityForResult(
-                                context,
+                                intent,
                                 smsConsentRequest
                             )
+                        } else {
+                            // If the intent is not valid, return an error.
+                            lastResult?.error("INVALID_INTENT", "Received intent does not have the expected action", null)
+                            lastResult = null
                         }
+                        unRegisterBroadcastReceivers() // Unregister immediately
                     }
 
                     override fun onFailure() {
                         lastResult?.error("408", "Timeout exception", null)
                         lastResult = null
+                        unRegisterBroadcastReceivers()
                     }
                 }
         }
@@ -197,7 +204,7 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
                 intentFilter,
                 SmsRetriever.SEND_PERMISSION,
                 null,
-                Context.RECEIVER_EXPORTED,
+                Context.RECEIVER_NOT_EXPORTED,
             )
         } else {
             this.activity?.registerReceiver(
@@ -232,7 +239,7 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
             this.activity?.registerReceiver(
                 smsRetrieverBroadcastReceiver,
                 intentFilter,
-                Context.RECEIVER_EXPORTED
+                Context.RECEIVER_NOT_EXPORTED
             )
         } else {
             this.activity?.registerReceiver(
